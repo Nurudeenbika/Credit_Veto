@@ -1,0 +1,142 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: credit_management_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: credit_management
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - credit_network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: credit_management_redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    networks:
+      - credit_network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: credit_management_backend
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    environment:
+      - NODE_ENV=production
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USERNAME=postgres
+      - DATABASE_PASSWORD=password
+      - DATABASE_NAME=credit_management
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
+      - JWT_REFRESH_SECRET=your_super_secret_refresh_key_change_this_in_production
+      - JWT_EXPIRES_IN=1h
+      - JWT_REFRESH_EXPIRES_IN=7d
+      - PORT=3001
+      - FRONTEND_URL=http://localhost:3000
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - USE_MOCK_CREDIT_DATA=true
+      - BCRYPT_SALT_ROUNDS=12
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    networks:
+      - credit_network
+
+  # Frontend Application (Optional - if you want to run frontend with docker)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: credit_management_frontend
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3001/api
+      - NEXT_PUBLIC_APP_URL=http://localhost:3000
+      - NEXT_PUBLIC_OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - credit_network
+
+  # Adminer (Database GUI - Optional)
+  adminer:
+    image: adminer:4.8.1
+    container_name: credit_management_adminer
+    restart: unless-stopped
+    ports:
+      - '8080:8080'
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      - postgres
+    networks:
+      - credit_network
+
+  # Redis Commander (Redis GUI - Optional)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: credit_management_redis_gui
+    restart: unless-stopped
+    ports:
+      - '8081:8081'
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    depends_on:
+      - redis
+    networks:
+      - credit_network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  credit_network:
+    driver: bridge
+# Development override file usage:
+# Create docker-compose.override.yml for development-specific settings
+#
+# version: '3.8'
+# services:
+#   backend:
+#     command: npm run start:dev
+#     volumes:
+#       - ./backend:/app
+#       - /app/node_modules
+#   frontend:
+#     command: npm run dev
+#     volumes:
+#       - ./frontend:/app
+#       - /app/node_modules
