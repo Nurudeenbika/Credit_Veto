@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { useApi } from "@/hooks/useApi";
-import { disputeApi } from "@/lib/api";
+import disputeApi from "@/lib/api";
 import { Dispute } from "@/lib/types";
 import {
   Users,

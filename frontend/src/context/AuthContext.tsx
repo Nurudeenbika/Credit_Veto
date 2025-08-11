@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
+//import { useRouter } from "next/navigation";
 import {
   User,
   LoginRequest,
@@ -35,6 +36,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  //const router = useRouter();
 
   // Initialize auth state
   useEffect(() => {
@@ -81,6 +83,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(authResponse.user);
       setIsAuthenticated(true);
       AuthManager.setUser(authResponse.user);
+
+      // Use setTimeout to ensure state updates are processed before redirect
+      // setTimeout(() => {
+      //router.push("/dashboard");
+      // }, 100);
     } catch (error) {
       console.error("Login error:", error);
       throw error;
@@ -96,6 +103,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // Tokens are already stored by the API client
       setUser(authResponse.user);
+
+      // Redirect to login after successful registration
+      //router.push("/login");
       setIsAuthenticated(true);
       AuthManager.setUser(authResponse.user);
     } catch (error) {

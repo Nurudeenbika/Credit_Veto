@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/Button";
@@ -11,13 +11,25 @@ import { LogIn, Eye, EyeOff } from "lucide-react";
 export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("user");
+  const [role, setRole] = useState<"user" | "admin">("user");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const { login } = useAuth();
+  const { login, isAuthenticated, user } = useAuth();
   const router = useRouter();
+  // Debug: Log auth state changes
+  useEffect(() => {
+    console.log("Auth state changed:", { isAuthenticated, user: !!user });
+
+    // Auto-redirect if already authenticated
+    if (isAuthenticated && user) {
+      console.log("User is authenticated, redirecting to dashboard...");
+      router.push("/dashboard");
+    }
+  }, [isAuthenticated, user, router]);
+
+  //const { login } = useAuth();
 
   const roleOptions = [
     { value: "user", label: "User" },
@@ -29,9 +41,20 @@ export function LoginForm() {
     setError("");
     setIsLoading(true);
 
+    console.log("Attempting login with:", { email, role });
+
     try {
-      await login(email, password, role);
-      router.push("/dashboard");
+      if (!email || !password || !role) {
+        setError("Please fill in all fields");
+        return;
+      }
+      console.log("Calling login function...");
+      await login({ email, password, role });
+      console.log("Login successful!");
+      setTimeout(() => {
+        console.log("Attempting redirect to dashboard...");
+        router.push("/dashboard");
+      }, 100);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
@@ -95,7 +118,7 @@ export function LoginForm() {
       <Select
         label="Role"
         value={role}
-        onValueChange={setRole}
+        onValueChange={(value) => setRole(value as "user" | "admin")}
         options={roleOptions}
         disabled={isLoading}
       />
@@ -103,7 +126,7 @@ export function LoginForm() {
       <Button
         type="submit"
         className="w-full"
-        disabled={isLoading || !email || !password}
+        disabled={isLoading || !email || !password || !role}
       >
         {isLoading ? (
           <>

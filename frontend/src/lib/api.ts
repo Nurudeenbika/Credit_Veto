@@ -24,12 +24,15 @@ class ApiClient {
     this.baseURL =
       process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
+    console.log("API Client initialized with baseURL:", this.baseURL);
+
     this.client = axios.create({
       baseURL: this.baseURL,
       headers: {
         "Content-Type": "application/json",
       },
       withCredentials: true, // Include cookies in requests
+      timeout: 10000, // Set a timeout for requests
     });
 
     this.setupInterceptors();
@@ -43,15 +46,30 @@ class ApiClient {
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
+        console.log("Making request to:", config.url, "with config:", {
+          headers: config.headers,
+          data: config.data,
+        });
         return config;
       },
-      (error) => Promise.reject(error)
+      (error) => {
+        console.error("Request interceptor error:", error);
+        return Promise.reject(error);
+      }
     );
 
     // Response interceptor to handle token refresh
     this.client.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        console.log("Response received:", response.status, response.data);
+        return response;
+      },
       async (error: AxiosError) => {
+        console.error(
+          "Response interceptor error:",
+          error.response?.status,
+          error.response?.data
+        );
         const originalRequest = error.config as any;
 
         if (error.response?.status === 401 && !originalRequest._retry) {
@@ -61,14 +79,16 @@ class ApiClient {
             const refreshToken = Cookies.get("refreshToken");
             if (refreshToken) {
               const response = await this.refreshToken();
-              const { accessToken } = response.data.tokens;
+              if (response.data && response.data.tokens) {
+                const { accessToken } = response.data.tokens;
 
-              Cookies.set("accessToken", accessToken);
-              originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+                Cookies.set("accessToken", accessToken);
+                originalRequest.headers.Authorization = `Bearer ${accessToken}`;
 
-              return this.client(originalRequest);
+                return this.client(originalRequest);
+              }
             }
-          } catch (refreshError) {
+          } catch {
             // Refresh failed, redirect to login
             this.logout();
             if (typeof window !== "undefined") {
@@ -83,18 +103,45 @@ class ApiClient {
   }
 
   private handleResponse<T>(response: AxiosResponse<ApiResponse<T>>): T {
+    console.log("Handling response:", response.data);
     if (response.data.success) {
       return response.data.data!;
     }
-    throw new Error(response.data.error || "Unknown error occurred");
+    const errorMessage =
+      response.data.error || response.data.message || "Unknown error occurred";
+    console.error("API response error:", errorMessage);
+    throw new Error(errorMessage);
   }
 
   private handleError(error: AxiosError): never {
+    console.error("API Error Details:", {
+      message: error.message,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      config: {
+        url: error.config?.url,
+        method: error.config?.method,
+        baseURL: error.config?.baseURL,
+      },
+    });
     if (error.response?.data) {
       const apiError = error.response.data as ApiResponse;
+      const errorMessage =
+        apiError.error ||
+        apiError.message ||
+        `HTTP ${error.response.status}: ${error.response.statusText}`;
+      throw new Error(errorMessage);
+    }
+
+    if (error.code === "ECONNREFUSED") {
       throw new Error(
-        apiError.error || apiError.message || "Unknown error occurred"
+        "Cannot connect to server. Please check if the API server is running."
       );
+    }
+
+    if (error.code === "ENOTFOUND") {
+      throw new Error("Server not found. Please check the API URL.");
     }
     throw new Error(error.message || "Network error occurred");
   }
@@ -102,10 +149,17 @@ class ApiClient {
   // Authentication endpoints
   async login(credentials: LoginRequest): Promise<AuthResponse> {
     try {
+      console.log("Attempting login with credentials:", {
+        email: credentials.email,
+        role: credentials.role,
+      });
       const response = await this.client.post<ApiResponse<AuthResponse>>(
         "/auth/login",
         credentials
       );
+
+      console.log("Login response received:", response.data);
+
       const authData = this.handleResponse(response);
 
       // Store tokens in cookies

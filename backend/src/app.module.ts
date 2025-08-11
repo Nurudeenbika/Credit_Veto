@@ -6,7 +6,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { redisStore } from 'cache-manager-redis-store';
 
 // Feature modules
-import { AuthModule } from '/auth/auth.module';
+import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CreditProfileModule } from './credit-profile/credit-profile.module';
 import { DisputesModule } from './disputes/disputes.module';
@@ -32,9 +32,9 @@ import { Dispute } from './disputes/entities/dispute.entity';
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
         host: configService.get('DATABASE_HOST', 'localhost'),
-        port: configService.get('DATABASE_PORT', 5432),
+        port: configService.get('DATABASE_PORT', 5433),
         username: configService.get('DATABASE_USERNAME', 'postgres'),
-        password: configService.get('DATABASE_PASSWORD', 'password'),
+        password: configService.get('DATABASE_PASSWORD', 'Nurumasko'),
         database: configService.get('DATABASE_NAME', 'credit_management'),
         entities: [User, CreditProfile, Dispute],
         synchronize: configService.get('NODE_ENV') !== 'production',
@@ -52,10 +52,10 @@ import { Dispute } from './disputes/entities/dispute.entity';
     CacheModule.registerAsync({
       isGlobal: true,
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => {
-        const redisHost = configService.get('REDIS_HOST', 'localhost');
-        const redisPort = configService.get('REDIS_PORT', 6379);
-        const redisPassword = configService.get('REDIS_PASSWORD');
+      useFactory: (configService: ConfigService) => {
+        const redisHost = configService.get<string>('REDIS_HOST', 'localhost');
+        const redisPort = configService.get<number>('REDIS_PORT', 6379);
+        const redisPassword = configService.get<string>('REDIS_PASSWORD');
 
         return {
           store: redisStore as any,

@@ -17,6 +17,7 @@ export interface AuthTokens {
 export interface LoginRequest {
   email: string;
   password: string;
+  role: "user" | "admin";
 }
 
 export interface RegisterRequest {
@@ -144,7 +145,7 @@ export interface GenerateLetterResponse {
 }
 
 // API Response Types
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   message?: string;
@@ -181,8 +182,28 @@ export interface DashboardStats {
 // WebSocket Types
 export interface WebSocketMessage {
   type: "DISPUTE_STATUS_UPDATE" | "CREDIT_SCORE_UPDATE" | "NOTIFICATION";
-  payload: any;
+  payload:
+    | DisputeStatusUpdatePayload
+    | CreditScoreUpdatePayload
+    | NotificationPayload;
   timestamp: string;
+}
+
+export interface DisputeStatusUpdatePayload {
+  disputeId: string;
+  status: DisputeStatus;
+  updatedAt: string;
+}
+
+export interface CreditScoreUpdatePayload {
+  userId: string;
+  creditScore: number;
+  updatedAt: string;
+}
+
+export interface NotificationPayload {
+  message: string;
+  level?: "info" | "warning" | "error";
 }
 
 // Component Props Types
