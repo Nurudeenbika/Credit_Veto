@@ -55,6 +55,20 @@ export class AuthService {
     };
   }
 
+  async getDashboard(userId: string) {
+    const user = await this.usersService.findOne(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+    };
+  }
+
   async getProfile(userId: string) {
     const user = await this.usersService.findOne(userId);
     if (!user) {

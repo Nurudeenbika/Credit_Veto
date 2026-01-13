@@ -3,7 +3,6 @@ import {
   Get,
   Post,
   Body,
-  Patch,
   Param,
   Delete,
   UseGuards,
@@ -35,9 +34,15 @@ export class UsersController {
     return this.usersService.findAll();
   }
 
+  @Get('dashboard')
+  @UseGuards(JwtAuthGuard)
+  getDashboard(@Request() req: { user: { userId: string } }) {
+    return this.usersService.findOne(String(req.user.userId));
+  }
+
   @Get('profile')
-  getProfile(@Request() req) {
-    return this.usersService.findOne(req.user.userId);
+  getProfile(@Request() req: { user: { userId: string } }) {
+    return this.usersService.findOne(String(req.user.userId));
   }
 
   @Get(':id')

@@ -26,7 +26,7 @@ export class AuthController {
     return {
       message: 'User registered successfully',
       user: {
-        //id: user.user.id,
+        id: user.user.id,
         email: user.user.email,
         firstName: user.user.firstName,
         lastName: user.user.lastName,
@@ -62,7 +62,9 @@ export class AuthController {
   @Post('regenerate-token')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  async regenerateToken(@Request() req) {
+  async regenerateToken(
+    @Request() req: Request & { user: { userId: string } },
+  ) {
     const result = await this.authService.regenerateToken(req.user.userId);
     return {
       message: 'Token regenerated successfully',
@@ -73,16 +75,33 @@ export class AuthController {
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  async logout(@Request() req) {
+  async logout(@Request() req: Request & { user: { userId: string } }) {
     await this.authService.logout(req.user.userId);
     return {
       message: 'Logout successful',
     };
   }
 
+  @Get('dashboard')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async getDashboard(@Request() req: Request & { user: { userId: string } }) {
+    const dashboardData = await this.authService.getDashboard(req.user.userId);
+    return {
+      user: {
+        //id: dashboardData.id,
+        email: dashboardData.email,
+        firstName: dashboardData.firstName,
+        lastName: dashboardData.lastName,
+        role: dashboardData.role,
+        //createdAt: dashboardData.createdAt,
+      },
+    };
+  }
+
   @Get('profile')
   @UseGuards(JwtAuthGuard)
-  async getProfile(@Request() req) {
+  async getProfile(@Request() req: Request & { user: { userId: string } }) {
     const user = await this.authService.getProfile(req.user.userId);
     return {
       user: {
