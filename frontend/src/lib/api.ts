@@ -102,16 +102,68 @@ class ApiClient {
     );
   }
 
-  private handleResponse<T>(response: AxiosResponse<ApiResponse<T>>): T {
-    console.log("Handling response:", response.data);
-    if (response.data.success) {
-      return response.data.data!;
+  private handleResponse<T>(response: AxiosResponse<any>): T {
+    // Special handling for auth endpoints
+    const isAuthEndpoint = response.config?.url?.includes("/auth/");
+
+    if (isAuthEndpoint) {
+      // For auth endpoints, return the entire response data
+      // or extract specific fields
+      return response.data as T;
     }
+
+    // For non-auth endpoints, use the old logic
+    if (response.data.success) {
+      return response.data.data;
+    }
+
     const errorMessage =
       response.data.error || response.data.message || "Unknown error occurred";
+
     console.error("API response error:", errorMessage);
     throw new Error(errorMessage);
   }
+  // private handleResponse<T>(response: AxiosResponse<ApiResponse<T>>): T {
+  //   console.log("Handling response:", response.data);
+  //   if (response.data.success) {
+  //     return response.data.data!;
+  //   }
+  //   const errorMessage =
+  //     response.data.error || response.data.message || "Unknown error occurred";
+
+  //   // Safely check for console existence
+  //   if (typeof console !== "undefined" && console.error) {
+  //     console.error("API response error:", errorMessage);
+  //   }
+
+  //   throw new Error(errorMessage);
+  // }
+  // private handleResponse<T>(response: AxiosResponse<ApiResponse<T>>): T {
+  //   console.log("Handling response:", response.data);
+
+  //   // 1️⃣ HTTP-level safety (Axios usually handles this)
+  //   if (response.status < 200 || response.status >= 300) {
+  //     throw new Error(response.data?.message || "Request failed");
+  //   }
+
+  //   // 2️⃣ Explicit backend failure
+  //   if (response.data?.success === false) {
+  //     throw new Error(
+  //       response.data?.error ||
+  //         response.data?.message ||
+  //         "Unknown error occurred"
+  //     );
+  //   }
+
+  //   // 3️⃣ SUCCESS PATH
+  //   // If backend wraps payload
+  //   if (response.data?.data !== undefined) {
+  //     return response.data.data as T;
+  //   }
+
+  //   // 4️⃣ Fallback (legacy endpoints)
+  //   return response.data as unknown as T;
+  // }
 
   private handleError(error: AxiosError): never {
     console.error("API Error Details:", {
@@ -147,32 +199,81 @@ class ApiClient {
   }
 
   // Authentication endpoints
-  async login(credentials: LoginRequest): Promise<AuthResponse> {
+  async login(credentials: LoginRequest): Promise<{
+    user: User;
+    accessToken: string;
+    refreshToken: string;
+  }> {
     try {
-      console.log("Attempting login with credentials:", {
-        email: credentials.email,
-        role: credentials.role,
-      });
-      const response = await this.client.post<ApiResponse<AuthResponse>>(
-        "/auth/login",
-        credentials
-      );
+      // Remove the ApiResponse<T> generic since backend doesn't use that structure
+      const response = await this.client.post("/auth/login", credentials);
 
-      console.log("Login response received:", response.data);
+      console.log("Login response structure:", response.data);
 
-      const authData = this.handleResponse(response);
+      const { user, accessToken, refreshToken, message } = response.data;
 
-      // Store tokens in cookies
-      Cookies.set("accessToken", authData.tokens.accessToken, { expires: 1 }); // 1 day
-      Cookies.set("refreshToken", authData.tokens.refreshToken, {
-        expires: 30,
-      }); // 30 days
+      if (!accessToken) {
+        console.error("No access token in response:", response.data);
+        throw new Error("Authentication failed: No access token received");
+      }
 
-      return authData;
-    } catch (error) {
-      this.handleError(error as AxiosError);
+      if (!user) {
+        console.error("No user data in response:", response.data);
+        throw new Error("Authentication failed: No user data received");
+      }
+
+      return {
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role,
+          updatedAt: user.updatedAt,
+          createdAt: user.createdAt,
+        },
+        accessToken,
+        refreshToken: refreshToken || "",
+      };
+    } catch (error: any) {
+      console.error("Login API call failed:", error);
+
+      // Handle different error formats
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      } else if (error.message) {
+        throw new Error(error.message);
+      } else {
+        throw new Error("Login failed. Please try again.");
+      }
     }
   }
+  // async login(credentials: LoginRequest): Promise<AuthResponse> {
+  //   try {
+  //     console.log("Attempting login with credentials:", {
+  //       email: credentials.email,
+  //       role: credentials.role,
+  //     });
+  //     const response = await this.client.post<ApiResponse<AuthResponse>>(
+  //       "/auth/login",
+  //       credentials
+  //     );
+
+  //     console.log("Login response received:", response.data);
+
+  //     const authData = this.handleResponse(response);
+
+  //     // Store tokens in cookies
+  //     Cookies.set("accessToken", authData.tokens.accessToken, { expires: 1 }); // 1 day
+  //     Cookies.set("refreshToken", authData.tokens.refreshToken, {
+  //       expires: 30,
+  //     }); // 30 days
+
+  //     return authData;
+  //   } catch (error) {
+  //     this.handleError(error as AxiosError);
+  //   }
+  // }
 
   async register(userData: RegisterRequest): Promise<AuthResponse> {
     try {
@@ -418,6 +519,24 @@ class ApiClient {
       const response = await this.client.get<
         ApiResponse<{ status: string; timestamp: string }>
       >("/health");
+      return this.handleResponse(response);
+    } catch (error) {
+      this.handleError(error as AxiosError);
+    }
+  }
+
+  async getDashboard(): Promise<{
+    user: {
+      email: string;
+      firstName: string;
+      lastName: string;
+      role: string;
+    };
+  }> {
+    try {
+      const response = await this.client.get<ApiResponse<{ user: User }>>(
+        "/auth/dashboard"
+      );
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error as AxiosError);

@@ -37,13 +37,13 @@ export function useLocalStorage<T>(
 }
 
 // Hook for managing form state with localStorage persistence
-export function usePersistedFormState<T extends Record<string, any>>(
+export function usePersistedFormState<T extends Record<string, unknown>>(
   key: string,
   initialState: T
-): [T, (field: keyof T, value: any) => void, () => void] {
+): [T, (field: keyof T, value: T[keyof T]) => void, () => void] {
   const [formState, setFormState] = useLocalStorage<T>(key, initialState);
 
-  const updateField = (field: keyof T, value: any) => {
+  const updateField = (field: keyof T, value: T[keyof T]) => {
     setFormState((prev) => ({
       ...prev,
       [field]: value,

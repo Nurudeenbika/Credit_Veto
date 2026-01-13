@@ -16,20 +16,8 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const { login, isAuthenticated, user } = useAuth();
+  const { login } = useAuth();
   const router = useRouter();
-  // Debug: Log auth state changes
-  useEffect(() => {
-    console.log("Auth state changed:", { isAuthenticated, user: !!user });
-
-    // Auto-redirect if already authenticated
-    if (isAuthenticated && user) {
-      console.log("User is authenticated, redirecting to dashboard...");
-      router.push("/dashboard");
-    }
-  }, [isAuthenticated, user, router]);
-
-  //const { login } = useAuth();
 
   const roleOptions = [
     { value: "user", label: "User" },
@@ -41,20 +29,17 @@ export function LoginForm() {
     setError("");
     setIsLoading(true);
 
-    console.log("Attempting login with:", { email, role });
-
     try {
       if (!email || !password || !role) {
         setError("Please fill in all fields");
         return;
       }
-      console.log("Calling login function...");
+
+      // Await the login call to ensure it's complete before proceeding
       await login({ email, password, role });
-      console.log("Login successful!");
-      setTimeout(() => {
-        console.log("Attempting redirect to dashboard...");
-        router.push("/dashboard");
-      }, 100);
+
+      // After a successful login, redirect immediately
+      router.push("/profile");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {

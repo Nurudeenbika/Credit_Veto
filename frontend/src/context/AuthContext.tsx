@@ -124,6 +124,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Redirect will be handled by AuthManager.logout()
   };
 
+  const Dashboard = async (): Promise<User | null> => {
+    try {
+      if (!AuthManager.isAuthenticated()) {
+        throw new Error("Not authenticated");
+      }
+
+      const userData = await apiClient.getDashboard();
+      setUser(userData);
+      return userData;
+    } catch (error) {
+      console.error("Error fetching dashboard:", error);
+      throw error;
+    }
+  };
+
   const refreshProfile = async (): Promise<void> => {
     try {
       if (!AuthManager.isAuthenticated()) {
